@@ -38,7 +38,6 @@ logger = logging.getLogger(__name__)
 # Ayarlar
 # ---------------------------------------------------------------------------
 TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
-OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 GROQ_API_KEY = os.environ["GROQ_API_KEY"]
 # Botu yalnızca bu Telegram kullanıcı ID'sine izin verecek şekilde kısıtlar.
 # Birden fazla kullanıcıya izin vermek için virgülle ayırıp liste yapabilirsiniz.
@@ -46,19 +45,19 @@ ALLOWED_USER_IDS = {
     int(uid) for uid in os.environ.get("ALLOWED_USER_ID", "").split(",") if uid.strip()
 }
 
-# Transkripsiyon (ses -> yazı) için Groq'un OpenAI-uyumlu endpoint'i kullanılır.
-# Not yapılandırma (yazı -> klinik not) için OpenAI GPT kullanılmaya devam eder.
+# Hem transkripsiyon (ses -> yazı) hem de not yapılandırma (yazı -> klinik not)
+# Groq'un OpenAI-uyumlu, ücretsiz katmanı üzerinden yapılır. Kredi kartı gerekmez.
 groq_client = OpenAI(api_key=GROQ_API_KEY, base_url="https://api.groq.com/openai/v1")
-openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
 # Konuşma (conversation) durumları
 (MENU, VIZIT_PATIENT, VIZIT_VOICE,
  KONSULT_PATIENT, KONSULT_VOICE, SEARCH_QUERY) = range(6)
 
 # Tıbbi terminolojide doğruluk önceliği olduğundan "turbo" değil standart
-# large-v3 modeli kullanılıyor (yine de OpenAI'dan çok daha ucuz).
+# large-v3 modeli kullanılıyor.
 TRANSCRIBE_MODEL = "whisper-large-v3"
-CHAT_MODEL = "gpt-4o-mini"
+# Groq'un ücretsiz katmanındaki güçlü, genel amaçlı modeli.
+CHAT_MODEL = "llama-3.3-70b-versatile"
 
 
 # ---------------------------------------------------------------------------
@@ -214,7 +213,7 @@ async def _process_voice_note(update: Update, context: ContextTypes.DEFAULT_TYPE
         patient_info = context.user_data.get("patient_info", "[belirtilmedi]")
         now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
 
-        completion = openai_client.chat.completions.create(
+        completion = groq_client.chat.completions.create(
             model=CHAT_MODEL,
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -376,3 +375,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
